@@ -4,51 +4,58 @@ const dns = require('dns');
 const bodyParser = require('body-parser');
 const app = express();
 
+// Basic Configuration
 const port = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use('/public', express.static(`${process.cwd()}/public`));
 app.use(bodyParser.urlencoded({ extended: false }));
 
-const urlDatabase = [];
+// In-memory "database"
+let urlDatabase = [];
 
-app.get('/', function (req, res) {
+// Home page
+app.get('/', (req, res) => {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-app.post('/api/shorturl', function (req, res) {
-  const originalUrl = req.body.url;
+// ✅ POST /api/shorturl
+app.post('/api/shorturl', (req, res) => {
+  const userUrl = req.body.url;
 
+  // Validate URL format
   try {
-    const urlObj = new URL(originalUrl);
+    const urlObj = new URL(userUrl);
+    const hostname = urlObj.hostname;
 
-    dns.lookup(urlObj.hostname, (err) => {
+    // Check if domain resolves
+    dns.lookup(hostname, (err) => {
       if (err) return res.json({ error: 'invalid url' });
 
-      const shortUrl = urlDatabase.length + 1;
-      urlDatabase.push({
-        original_url: originalUrl,
-        short_url: shortUrl
-      });
-
-      res.json({ original_url: originalUrl, short_url: shortUrl });
+      // Store and return short_url
+      const short_url = urlDatabase.length + 1;
+      urlDatabase.push({ original_url: userUrl, short_url });
+      res.json({ original_url: userUrl, short_url });
     });
   } catch (e) {
     res.json({ error: 'invalid url' });
   }
 });
 
-app.get('/api/shorturl/:short', function (req, res) {
-  const short = parseInt(req.params.short);
-  const found = urlDatabase.find(entry => entry.short_url === short);
+// ✅ GET /api/shorturl/:short_url
+app.get('/api/shorturl/:short_url', (req, res) => {
+  const short = parseInt(req.params.short_url);
+  const entry = urlDatabase.find(item => item.short_url === short);
 
-  if (found) {
-    res.redirect(found.original_url);
+  if (entry) {
+    res.redirect(entry.original_url);
   } else {
-    res.json({ error: 'No short URL found for given input' });
+    res.json({ error: 'invalid url' });
   }
 });
 
-app.listen(port, function () {
+// Start server
+app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
